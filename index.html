@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RunAI Pro v4</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0b0f">
+<link rel="apple-touch-icon" href="icon.png">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+/* =========================
+   DESIGN SYSTEM
+========================= */
+
+:root{
+    --bg:#0b0b10;
+    --panel:#151522;
+    --panel2:#1b1b2a;
+    --text:#ffffff;
+    --muted:#9aa0b4;
+    --accent:#00e676;
+    --danger:#ff3b30;
+    --border:#26263a;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto;
+}
+
+body{
+    background:var(--bg);
+    color:var(--text);
+    padding-bottom:90px;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.header{
+    padding:18px 16px;
+    font-size:22px;
+    font-weight:800;
+    letter-spacing:0.3px;
+}
+
+/* =========================
+   NAVIGATION
+========================= */
+
+.nav{
+    position:fixed;
+    bottom:0;
+    left:0;
+    right:0;
+    height:72px;
+    background:#0f0f18;
+    border-top:1px solid var(--border);
+    display:flex;
+    justify-content:space-around;
+    align-items:center;
+}
+
+.nav button{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:12px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+}
+
+.nav button.active{
+    color:var(--accent);
+}
+
+/* =========================
+   VIEWS
+========================= */
+
+.view{
+    display:none;
+    padding:16px;
+}
+
+.view.active{
+    display:block;
+    animation:fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn{
+    from{opacity:0; transform:translateY(6px);}
+    to{opacity:1; transform:translateY(0);}
+}
+
+/* =========================
+   CARDS
+========================= */
+
+.card{
+    background:var(--panel);
+    padding:14px;
+    border-radius:16px;
+    margin-bottom:12px;
+    border:1px solid var(--border);
+}
+
+/* =========================
+   INPUTS
+========================= */
+
+input{
+    width:100%;
+    padding:12px;
+    margin-top:8px;
+    border-radius:12px;
+    border:none;
+    background:var(--panel2);
+    color:white;
+    outline:none;
+}
+
+/* =========================
+   BUTTONS
+========================= */
+
+button.primary{
+    width:100%;
+    padding:12px;
+    margin-top:10px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:black;
+    font-weight:800;
+}
+
+/* =========================
+   STATS
+========================= */
+
+.grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+}
+
+.stat{
+    background:var(--panel);
+    padding:12px;
+    border-radius:14px;
+    border:1px solid var(--border);
+}
+
+.stat h2{
+    font-size:18px;
+}
+
+.stat p{
+    font-size:11px;
+    color:var(--muted);
+}
+
+/* =========================
+   HISTORY LIST
+========================= */
+
+.historyItem{
+    padding:12px;
+    background:var(--panel);
+    border-radius:14px;
+    margin-bottom:10px;
+    border:1px solid var(--border);
+}
+
+.small{
+    font-size:12px;
+    color:var(--muted);
+}
+
+canvas{
+    margin-top:10px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">RunAI Pro v4</div>
+
+<!-- ================= INPUT ================= -->
+<div class="view active" id="viewInput">
+
+    <div class="card">
+        <h3>New Run</h3>
+
+        <input type="date" id="date">
+        <input type="number" id="distance" placeholder="Distance (km)">
+        <input type="number" id="time" placeholder="Time (min)">
+        <input type="number" id="elevation" placeholder="Elevation gain (m)">
+        <input type="text" id="pace" placeholder="Pace (min/km optional)">
+
+        <button class="primary" onclick="addRun()">Save Run</button>
+    </div>
+
+    <div class="card">
+        <h3>History</h3>
+        <div id="history"></div>
+    </div>
+
+</div>
+
+<!-- ================= STATS ================= -->
+<div class="view" id="viewStats">
+
+    <div class="grid">
+
+        <div class="stat">
+            <h2 id="tKm">0</h2>
+            <p>Total km</p>
+        </div>
+
+        <div class="stat">
+            <h2 id="aPace">0</h2>
+            <p>Avg pace</p>
+        </div>
+
+        <div class="stat">
+            <h2 id="tElev">0</h2>
+            <p>Elevation</p>
+        </div>
+
+        <div class="stat">
+            <h2 id="wKm">0</h2>
+            <p>7 days</p>
+        </div>
+
+    </div>
+
+    <div class="card">
+        <canvas id="chart"></canvas>
+    </div>
+
+</div>
+
+<!-- ================= AI ================= -->
+<div class="view" id="viewAI">
+
+    <div class="card">
+        <input type="password" id="apiKey" placeholder="Gemini API Key">
+        <button class="primary" onclick="runAI()">Analyze Performance</button>
+    </div>
+
+    <div class="card" id="aiOut">AI output...</div>
+
+</div>
+
+<!-- ================= NAV ================= -->
+<div class="nav">
+
+    <button onclick="switchView('viewInput')" id="b1">Input</button>
+    <button onclick="switchView('viewStats')" id="b2">Stats</button>
+    <button onclick="switchView('viewAI')" id="b3">AI</button>
+
+</div>
+
+<script>
+
+/* =========================
+   DATA
+========================= */
+
+let runs = JSON.parse(localStorage.getItem("runs_v4")) || [];
+let chart;
+
+document.getElementById("date").valueAsDate = new Date();
+
+/* =========================
+   NAV SWITCH
+========================= */
+
+function switchView(id){
+
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+
+}
+
+/* =========================
+   ADD RUN
+========================= */
+
+function addRun(){
+
+    let r = {
+        date: date.value,
+        distance: +distance.value,
+        time: +time.value,
+        elevation: +elevation.value || 0,
+        pace: pace.value || (time.value/distance.value).toFixed(2)
+    };
+
+    runs.push(r);
+    runs.sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+    localStorage.setItem("runs_v4", JSON.stringify(runs));
+
+    distance.value="";
+    time.value="";
+    elevation.value="";
+    pace.value="";
+
+    update();
+}
+
+/* =========================
+   CALCULATIONS
+========================= */
+
+function calc(){
+
+    let totalKm = runs.reduce((a,b)=>a+b.distance,0);
+    let totalElev = runs.reduce((a,b)=>a+b.elevation,0);
+
+    let avgPace = runs.length
+        ? (runs.reduce((a,b)=>a+parseFloat(b.pace),0)/runs.length).toFixed(2)
+        : 0;
+
+    let now = Date.now();
+    let week = runs.filter(r=>
+        (now - new Date(r.date)) < 7*86400000
+    ).reduce((a,b)=>a+b.distance,0);
+
+    return {totalKm,totalElev,avgPace,week};
+}
+
+/* =========================
+   UI UPDATE
+========================= */
+
+function update(){
+
+    let c = calc();
+
+    tKm.innerText = c.totalKm.toFixed(1);
+    aPace.innerText = c.avgPace;
+    tElev.innerText = c.totalElev;
+    wKm.innerText = c.week.toFixed(1);
+
+    renderHistory();
+    draw();
+
+}
+
+/* =========================
+   HISTORY
+========================= */
+
+function renderHistory(){
+
+    history.innerHTML = runs.slice(-6).reverse().map(r=>`
+        <div class="historyItem">
+            <b>${r.date}</b><br>
+            <span class="small">${r.distance} km • ${r.time} min • ${r.elevation} m</span>
+        </div>
+    `).join("");
+
+}
+
+/* =========================
+   CHART
+========================= */
+
+function draw(){
+
+    let ctx = document.getElementById("chart").getContext("2d");
+
+    if(chart) chart.destroy();
+
+    chart = new Chart(ctx,{
+        type:"line",
+        data:{
+            labels:runs.map(r=>r.date),
+            datasets:[{
+                label:"Distance",
+                data:runs.map(r=>r.distance),
+                borderColor:"#00e676"
+            }]
+        }
+    });
+
+}
+
+/* =========================
+   AI COACH
+========================= */
+
+async function runAI(){
+
+    let key = apiKey.value;
+    if(!key) return alert("Missing API key");
+
+    let c = calc();
+
+    let prompt = `
+You are a professional running coach.
+
+Stats:
+- Total km: ${c.totalKm}
+- Avg pace: ${c.avgPace}
+- Elevation: ${c.totalElev}
+- Weekly km: ${c.week}
+
+Give:
+1. Analysis
+2. Risk
+3. Training plan
+`;
+
+    aiOut.innerText = "Analyzing...";
+
+    let res = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key="+key,
+        {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+        }
+    );
+
+    let data = await res.json();
+
+    aiOut.innerText =
+        data.candidates?.[0]?.content?.parts?.[0]?.text
+        || "Error";
+
+}
+
+/* =========================
+   INIT
+========================= */
+
+update();
+
+</script>
+
+<script>
+if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("service-worker.js");
+}
+</script>
+
+</body>
+</html>
