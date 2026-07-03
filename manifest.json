@@ -1,0 +1,8 @@
+{
+  "name": "RunAI Pro v4",
+  "short_name": "RunAI",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0b0b10",
+  "theme_color": "#0b0b10"
+}
